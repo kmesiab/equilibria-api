@@ -32,6 +32,8 @@ type TokenServiceInterface interface {
 	GetPublicKey(rotator KeyRotatorInterface) (*rsa.PublicKey, error)
 }
 
+var cachedPublicKey *rsa.PublicKey
+
 type TokenService struct{}
 
 func (t TokenService) Generate(user *models.User, expirationMinutes int, key *rsa.PrivateKey) (string, error) {
@@ -105,7 +107,7 @@ func (t TokenService) Issue(user *models.User, expiration int, keyRotator KeyRot
 	return userJWT, nil
 }
 
-func (t TokenService) GetPrivateKey(rotator KeyRotatorInterface) (*rsa.PrivateKey, error) {
+func (t TokenService) GetPrivateKey(_ KeyRotatorInterface) (*rsa.PrivateKey, error) {
 	sess, err := session.NewSession(getAWSSessionConfig())
 
 	if err != nil {
@@ -126,7 +128,12 @@ func (t TokenService) GetPrivateKey(rotator KeyRotatorInterface) (*rsa.PrivateKe
 	return privateKey, nil
 }
 
-func (t TokenService) GetPublicKey(rotator KeyRotatorInterface) (*rsa.PublicKey, error) {
+func (t TokenService) GetPublicKey(_ KeyRotatorInterface) (*rsa.PublicKey, error) {
+
+	if cachedPublicKey != nil {
+		return cachedPublicKey, nil
+	}
+
 	sess, err := session.NewSession(getAWSSessionConfig())
 
 	if err != nil {
@@ -138,13 +145,14 @@ func (t TokenService) GetPublicKey(rotator KeyRotatorInterface) (*rsa.PublicKey,
 
 	// Get a rotator service for accessing the keys in AWS Parameter Store
 	rotatorService := NewKeyRotator(sess)
-	publicKey, err := rotatorService.GetCurrentRSAPublicKey(ParameterStorePublicKeyName)
+	cachedPublicKey, err := rotatorService.GetCurrentRSAPublicKey(ParameterStorePublicKeyName)
 
 	if err != nil {
 
 		return nil, fmt.Errorf("couldn't get the public key")
 	}
-	return publicKey, nil
+
+	return cachedPublicKey, nil
 }
 
 func getAWSSessionConfig() *aws.Config {
