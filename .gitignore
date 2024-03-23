@@ -1,0 +1,10 @@
+.idea
+.terraform
+
+*.tfstate
+*.backup
+*.hcl
+*.info
+
+equilibria_api
+.env
